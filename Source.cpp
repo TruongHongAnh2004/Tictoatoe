@@ -25,7 +25,7 @@ public:
 				{
 					std::cout << board[i][j] << " | ";
 				}
-				else 
+				else
 				{
 					std::cout << getIndex(i, j) << " | ";
 				}
@@ -80,18 +80,10 @@ public:
 	}
 
 	void setCell(int row, int col, char symbol) {
-		// Kiểm tra xem ô đó có hợp lệ không
-		if (row >= 0 && row < 3 && col >= 0 && col < 3 && board[row][col] == ' ') {
-			// Đánh dấu ô đó bằng ký hiệu 'X'
-			board[row][col] = 'X';
-		}
-		// Nếu không hợp lệ, có thể in ra thông báo lỗi
-		else {
-			std::cout << "Invalid move!" << std::endl;
-		}
+		board[row][col] = symbol;
 	}
 
-	char& getCell(int row, int col) {
+	char getCell(int row, int col) {
 		return board[row][col];
 	}
 
@@ -124,10 +116,8 @@ public:
 		int row = (index - 1) / 3;
 		int col = (index - 1) % 3;
 
-
-
 		// Kiểm tra nếu ô đã được đánh
-		if (board.getCell(row, col) != 'X') {
+		if (board.getCell(row, col) != ' ') {
 			std::cout << "That spot is already taken, try again." << std::endl;
 
 			// In ra bảng với ký tự 'X' trên ô đã được chọn
@@ -147,29 +137,156 @@ public:
 class Robot : public Player {
 private:
 	std::pair<int, int> getEasyMove(Board& board) {
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<> dis(0, 2);
+		std::cout << "Robot turn (" << symbol << ") " << std::endl;
 
-		int row, col;
-		do {
-			row = dis(gen);
-			col = dis(gen);
-		} while (board.getCell(row, col) != ' ');
+		int minIndex = 1;
+		int maxIndex = 9; // Inclusive upper bound
+
+		// Initialize the random number generator with a random device seed
+		std::random_device rd; // Obtain a random number from hardware
+		std::mt19937 gen(rd()); // Seed the generator
+		std::uniform_int_distribution<> dis(minIndex, maxIndex); // Define the range
+
+		// Generate a random index
+		int index = dis(gen);
+
+		// Chuyển đổi số thành tọa độ hàng và cột
+		int row = (index - 1) / 3;
+		int col = (index - 1) % 3;
+
+		// Kiểm tra nếu ô đã được đánh
+		if (board.getCell(row, col) != ' ') {
+			std::cout << "That spot is already taken, try again." << std::endl;
+
+			// In ra bảng với ký tự $symbol trên ô đã được chọn
+			board.displayBoard();
+
+			return getEasyMove(board); // Gọi lại getMove() để người chơi nhập lại
+		}
+
+		// Đánh dấu ô với ký tự của người chơi
+		board.setCell(row, col, symbol);
+		board.displayBoard(); // In ra bảng với ký tự 'X' trên ô vừa được chọn
 
 		return std::make_pair(row, col);
 	}
 
 	std::pair<int, int> getNormalMove(Board& board) {
-		// Implement normal AI logic here
-		return getEasyMove(board);
-	}
+    // Check for a winning move
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            if (board.getCell(row, col) == ' ') {
+                board.setCell(row, col, symbol);
+                if (board.checkWin(symbol)) {
+                    return {row, col}; // Winning move found
+                }
+                board.setCell(row, col, ' '); // Reset the cell
+            }
+        }
+    }
+
+    // Block opponent's winning move
+    char opponentSymbol = (symbol == 'X') ? 'O' : 'X';
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            if (board.getCell(row, col) == ' ') {
+                board.setCell(row, col, opponentSymbol);
+                if (board.checkWin(opponentSymbol)) {
+                    board.setCell(row, col, symbol); // Block opponent
+                    return {row, col};
+                }
+                board.setCell(row, col, ' '); // Reset the cell
+            }
+        }
+    }
+
+    // If no winning or blocking move, make a random move
+    return getNormalMove(board);
+}
 
 	std::pair<int, int> getHardMove(Board& board) {
-		// Implement hard AI logic here
-		return getEasyMove(board);
-	}
+		// Check for a winning move
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				if (board.getCell(row, col) == ' ') {
+					board.setCell(row, col, symbol);
+					if (board.checkWin(symbol)) {
+						return { row, col }; // Winning move found
+					}
+					board.setCell(row, col, ' '); // Reset the cell
+				}
+			}
+		}
 
+		// Block opponent's winning move
+		char opponentSymbol = (symbol == 'X') ? 'O' : 'X';
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				if (board.getCell(row, col) == ' ') {
+					board.setCell(row, col, opponentSymbol);
+					if (board.checkWin(opponentSymbol)) {
+						board.setCell(row, col, symbol); // Block opponent
+						return { row, col };
+					}
+					board.setCell(row, col, ' '); // Reset the cell
+				}
+			}
+		}
+
+		// Check for a fork move (create two threats)
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				if (board.getCell(row, col) == ' ') {
+					board.setCell(row, col, symbol);
+					int threatsCreated = 0;
+					for (int i = 0; i < 3; ++i) {
+						for (int j = 0; j < 3; ++j) {
+							if (board.getCell(i, j) == ' ') {
+								board.setCell(i, j, symbol);
+								if (board.checkWin(symbol)) {
+									++threatsCreated;
+								}
+								board.setCell(i, j, ' ');
+							}
+						}
+					}
+					board.setCell(row, col, ' ');
+					if (threatsCreated >= 2) {
+						return { row, col }; // Fork move found
+					}
+				}
+			}
+		}
+
+		// Block opponent's fork move
+		for (int row = 0; row < 3; ++row) {
+			for (int col = 0; col < 3; ++col) {
+				if (board.getCell(row, col) == ' ') {
+					board.setCell(row, col, opponentSymbol);
+					int threatsCreated = 0;
+					for (int i = 0; i < 3; ++i) {
+						for (int j = 0; j < 3; ++j) {
+							if (board.getCell(i, j) == ' ') {
+								board.setCell(i, j, opponentSymbol);
+								if (board.checkWin(opponentSymbol)) {
+									++threatsCreated;
+								}
+								board.setCell(i, j, ' ');
+							}
+						}
+					}
+					board.setCell(row, col, ' ');
+					if (threatsCreated >= 2) {
+						board.setCell(row, col, symbol); // Block opponent's fork
+						return { row, col };
+					}
+				}
+			}
+		}
+
+		// If no winning, blocking, or fork move, make a random move
+		return getHardMove(board);
+	}
 	int difficulty;
 public:
 	Robot(char symbol, int difficulty) : Player(symbol), difficulty(difficulty) {}
@@ -245,17 +362,17 @@ public:
 			}
 		}
 
+		board.displayBoard();		
+
 		// Tiếp tục game
 		while (true) {
-			board.displayBoard();
 			std::pair<int, int> move = currentPlayer->getMove(board);
-			if (!board.setMove(move.first, move.second, currentPlayer->getSymbol())) {
-				std::cout << "That spot is already taken, try again." << std::endl;
-				continue;
-			}
-			else {
-				std::cout << "Player " << currentPlayer->getSymbol() << " moved to position (" << move.first << ", " << move.second << ")" << std::endl;
-			}
+		
+
+			// Adjust the move to correspond to the correct position on the board
+			int row = move.first;
+			int col = move.second;
+
 
 			if (board.checkWin(currentPlayer->getSymbol())) {
 				board.displayBoard();
